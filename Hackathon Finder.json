@@ -1,0 +1,399 @@
+{
+  "name": "Hackathon-finder",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            },
+            {
+              "triggerAtHour": 20
+            }
+          ]
+        }
+      },
+      "id": "b9ae9f06-d1b2-4231-bb7e-930381a0be2d",
+      "name": "Daily Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://devpost.com/api/hackathons",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "order_by",
+              "value": "recently-added"
+            },
+            {
+              "name": "status[]",
+              "value": "open"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ec3254c6-e5d0-4524-a383-7c5bd0435897",
+      "name": "Fetch Devpost Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        224,
+        112
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "hackathons",
+        "options": {}
+      },
+      "id": "0379d812-c19c-4b96-b069-0a590e3ef6c9",
+      "name": "Split Hackathons",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        448,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an assistant that filters and structures tech event listings.\n\nClassify the following event. It is RELEVANT only if it is one of:\n- an AI/ML hackathon\n- an algorithmic or competitive-coding challenge\n- a tech meetup\n\nIf it is anything else, set isRelevant to false and category to \"Other\".\nExtract the registration link, dates, and any required/featured tech stacks.\n\nEvent data (JSON):\n{{ JSON.stringify($json) }}",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "id": "3ed849eb-6ba7-40a6-8e4f-5c97c60d7692",
+      "name": "Classify & Extract",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        672,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-haiku-4-5-20251001",
+          "cachedResultName": "Claude Haiku 4.5"
+        },
+        "options": {}
+      },
+      "id": "1bc9f0fd-e58b-44e9-b8c2-ad2856170ef4",
+      "name": "Claude Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        448,
+        304
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "A01CuBGTsatBl6iI",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"isRelevant\": {\n      \"type\": \"boolean\",\n      \"description\": \"True only if the event is an AI/ML hackathon, an algorithmic/coding challenge, or a tech meetup. False for anything else.\"\n    },\n    \"category\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"AI Hackathon\",\n        \"Algorithmic Challenge\",\n        \"Tech Meetup\",\n        \"Other\"\n      ],\n      \"description\": \"The best-fitting category for this event.\"\n    },\n    \"title\": {\n      \"type\": \"string\",\n      \"description\": \"Event title.\"\n    },\n    \"registrationLink\": {\n      \"type\": \"string\",\n      \"description\": \"URL to register / event page.\"\n    },\n    \"dates\": {\n      \"type\": \"string\",\n      \"description\": \"Human-readable date or date range for the event.\"\n    },\n    \"techStacks\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"Required or featured technologies/tech stacks for the event (e.g. Python, React, LLMs). Empty array if none stated.\"\n    }\n  },\n  \"required\": [\n    \"isRelevant\",\n    \"category\",\n    \"title\",\n    \"registrationLink\",\n    \"dates\",\n    \"techStacks\"\n  ]\n}"
+      },
+      "id": "d8a87c9d-c075-4d06-9b1d-ef4f48e91008",
+      "name": "Event Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        816,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-relevant",
+              "leftValue": "={{ $json.output.isRelevant }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "abd75481-7194-4d48-b0c4-be471e1fe33a",
+      "name": "Only Relevant",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1024,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "3d86a1b0-08b3-80dc-9665-f54e796d8867",
+          "mode": "list",
+          "cachedResultName": "hackathon-finder",
+          "cachedResultUrl": "https://app.notion.com/p/3d86a1b008b380dc9665f54e796d8867"
+        },
+        "title": "={{ $json.output.title }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Category|select",
+              "selectValue": "={{ $json.output.category }}"
+            },
+            {
+              "key": "Registration Link|url",
+              "urlValue": "={{ $json.output.registrationLink }}"
+            },
+            {
+              "key": "Dates|rich_text",
+              "textContent": "={{ $json.output.dates }}"
+            },
+            {
+              "key": "Tech Stacks|rich_text",
+              "textContent": "={{ $json.output.techStacks.join(\", \") }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "55758bc3-b9c1-454f-93e4-21a5f7ccbb22",
+      "name": "Add to Notion",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1248,
+        112
+      ],
+      "credentials": {
+        "notionOAuth2Api": {
+          "id": "DUMr5z4SPHNg9PB8",
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const relevant = $('Only Relevant').all();\nconst lines = relevant.map(i => {\n  const o = i.json.output || {};\n  const stacks = Array.isArray(o.techStacks) && o.techStacks.length ? o.techStacks.join(', ') : 'n/a';\n  return `• ${o.title} (${o.category}) — ${o.dates}\n  Register: ${o.registrationLink}\n  Tech: ${stacks}`;\n});\nconst count = lines.length;\nconst summary = count ? lines.join('\\n\\n') : 'No new relevant events found.';\nreturn [{ json: { count, summary } }];"
+      },
+      "id": "a4f0c1b2-2d3e-4f5a-9b6c-1e2f3a4b5c6d",
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "shiven.kath.work@gmail.com",
+        "subject": "Daily-Hackathon-FInder",
+        "emailType": "text",
+        "message": "={{ $json.count }} new hackathon event(s) added to your Notion database:\n\n{{ $json.summary }}",
+        "options": {}
+      },
+      "id": "b5e1d2c3-3e4f-5a6b-0c7d-2f3a4b5c6d7e",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1696,
+        112
+      ],
+      "webhookId": "bcd547d1-f6bb-4863-9ba8-22d55c8fa4d3",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "mSUqjoY8T7htP94n",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Check": {
+      "main": [
+        [
+          {
+            "node": "Fetch Devpost Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Devpost Feed": {
+      "main": [
+        [
+          {
+            "node": "Split Hackathons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Hackathons": {
+      "main": [
+        [
+          {
+            "node": "Classify & Extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify & Extract": {
+      "main": [
+        [
+          {
+            "node": "Only Relevant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Classify & Extract",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Event Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Classify & Extract",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only Relevant": {
+      "main": [
+        [
+          {
+            "node": "Add to Notion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Notion": {
+      "main": [
+        [
+          {
+            "node": "Build Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "ae062073-aaea-4e25-8403-e8612c48cf2a",
+  "meta": {
+    "instanceId": "7e7fcedcb88a1880f3fd7ed915392de82e9382c543fd6b2f62765576e205dfc0"
+  },
+  "nodeGroups": [
+    {
+      "id": "ed895f19-eb6e-44e9-a6cb-b98d5d0480a5",
+      "name": "Ingest",
+      "nodeIds": [
+        "ec3254c6-e5d0-4524-a383-7c5bd0435897",
+        "0379d812-c19c-4b96-b069-0a590e3ef6c9"
+      ],
+      "description": "Pull the open hackathons feed from Devpost and split it into individual events."
+    },
+    {
+      "id": "423384e8-0f48-49d2-98b8-ee06c1681ca0",
+      "name": "Classify",
+      "nodeIds": [
+        "3ed849eb-6ba7-40a6-8e4f-5c97c60d7692",
+        "1bc9f0fd-e58b-44e9-b8c2-ad2856170ef4",
+        "d8a87c9d-c075-4d06-9b1d-ef4f48e91008"
+      ],
+      "description": "Use an LLM to keep only AI hackathons, algorithmic challenges and tech meetups, and extract their key fields."
+    },
+    {
+      "id": "2a568714-462e-4c48-831d-31a5ae2c43a2",
+      "name": "Publish",
+      "nodeIds": [
+        "abd75481-7194-4d48-b0c4-be471e1fe33a",
+        "55758bc3-b9c1-454f-93e4-21a5f7ccbb22"
+      ],
+      "description": "Filter to relevant events and create a Notion database page for each."
+    },
+    {
+      "id": "b4c40af2-74ec-4b77-87fb-6d38a5176c07",
+      "name": "Notify",
+      "nodeIds": [
+        "a4f0c1b2-2d3e-4f5a-9b6c-1e2f3a4b5c6d",
+        "b5e1d2c3-3e4f-5a6b-0c7d-2f3a4b5c6d7e"
+      ],
+      "description": "Summarise the newly added events and email a notification."
+    }
+  ],
+  "id": "7hPJ7dz3A6kdSWCW",
+  "tags": []
+}
