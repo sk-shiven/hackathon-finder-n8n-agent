@@ -1,0 +1,26 @@
+name: Nightly Notion Dedupe
+
+on:
+  schedule:
+    - cron: "30 15 * * *"  # 15:30 UTC = 21:00 Asia/Calcutta
+  workflow_dispatch: {}
+
+jobs:
+  dedupe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install requests
+
+      - name: Run dedupe
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          DATABASE_ID: ${{ secrets.DATABASE_ID }}
+        run: python dedupe.py
